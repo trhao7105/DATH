@@ -2,14 +2,12 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# COPY toàn bộ project trước
 COPY . .
 
-# vào đúng folder chứa code
-WORKDIR /app/tutor-web
+# 👉 cài đúng path
+RUN pip install --no-cache-dir -r tutor-web/requirements.txt
 
-# cài thư viện
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app/tutor-web
 
 ENV PORT=10000
 
