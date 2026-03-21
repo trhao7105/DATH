@@ -4,10 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-# 👉 cài đúng path
-RUN pip install --no-cache-dir -r tutor-web/requirements.txt
-
-WORKDIR /app/tutor-web
+RUN pip install --no-cache-dir -r requirements.txt
 
 ENV PORT=10000
 
