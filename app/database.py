@@ -1,12 +1,20 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, declarative_base
+import os
 
-# Configuration matches your PHP config (Port 3307 or 3306 depending on XAMPP)
-DB_URL = "mysql+pymysql://root:12345@localhost:3306/tutor_system"
+DB_URL = "postgresql+psycopg2://neondb_owner:npg_yjwS1ZTPgH0A@ep-sparkling-sea-a1g0npt0-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require"
 
-engine = create_engine(DB_URL, pool_pre_ping=True)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_engine(
+    DB_URL,
+    pool_pre_ping=True
+)
+
+SessionLocal = sessionmaker(
+    autocommit=False,
+    autoflush=False,
+    bind=engine
+)
+
 Base = declarative_base()
 
 def get_db():

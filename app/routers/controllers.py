@@ -4,120 +4,167 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
-from datetime import datetime, timedelta
+import random
+
 from app.models import TutorRequest, RequestStatus, User
 from app.database import get_db
-from app.services.services import AuthService, ScheduleService, CoordinationService, SysManagementService, MatchingService, BookingService
-import random
+from app.services.services import (
+    AuthService, ScheduleService, CoordinationService,
+    SysManagementService, MatchingService, BookingService
+)
+
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
 
-# --- Helpers ---
+
+# =========================
+# HELPERS
+# =========================
+
 def get_user_session(request: Request):
-    return request.session.get("user")
+    """Lấy thông tin user từ session một cách an toàn"""
+    user = request.session.get("user")
+    if isinstance(user, dict) and user.get("id") and user.get("role"):
+        return user
+    return None
+
 
 def require_role(request: Request, role: str):
+    """Kiểm tra quyền truy cập theo role"""
     user = get_user_session(request)
-    if not user or user['role'] != role:
+    if not user or user.get("role") != role:
         raise HTTPException(status_code=403, detail="Unauthorized")
     return user
 
-# --- Input Models ---
+
+# =========================
+# INPUT MODELS
+# =========================
+
 class LoginRequest(BaseModel):
     mssv: str
     password: str
+
 
 class ScheduleRequest(BaseModel):
     action: str
     slots: List[str]
 
+
 class ProgramRegRequest(BaseModel):
     program_id: int
+
 
 class BookRequest(BaseModel):
     slot_id: int
     note: Optional[str] = None
 
+
 class TutorSelectRequest(BaseModel):
     tutor_id: int
 
+
 class TutorRespondBooking(BaseModel):
     req_id: int
-    action: str # 'accept' hoặc 'reject'
+    action: str  # 'accept' hoặc 'reject'
 
-# --- ROUTES ---
+
+class TutorRespondRequest(BaseModel):
+    request_id: int
+    accept: bool
+    reason: Optional[str] = None
+
+
+# =========================
+# AUTH ROUTES
+# =========================
 
 @router.post("/api/login")
 def login(req: LoginRequest, request: Request, db: Session = Depends(get_db)):
     auth_service = AuthService(db)
     user = auth_service.login(req.mssv, req.password)
+    
     if user:
-        user_data = {"id": user.id, "ho_ten": user.ho_ten, "role": user.role}
+        # CHỈ lưu dữ liệu primitive để tránh lỗi JSON serializable
+        user_data = {
+            "id": user.id,
+            "ho_ten": user.ho_ten,
+            "role": user.role.value if hasattr(user.role, "value") else str(user.role),
+        }
         request.session["user"] = user_data
         return {"success": True, "user": user_data}
+    
     return {"success": False, "message": "Sai MSSV hoặc mật khẩu"}
-# --- Find Tutor Use Case (NEW) ---
+
+
+@router.post("/api/logout")
+def logout(request: Request):
+    request.session.clear()
+    return {"success": True}
+
+
+# =========================
+# FIND TUTOR USE CASE
+# =========================
 
 @router.get("/find-tutor", response_class=HTMLResponse)
 def view_find_tutor(request: Request):
     user = get_user_session(request)
-    if not user or user['role'] != 'student': return RedirectResponse("/")
+    if not user or user.get("role") != "student":
+        return RedirectResponse("/")
     return templates.TemplateResponse("find_tutor.html", {"request": request, "user": user})
+
 
 @router.get("/api/find_tutor")
 def api_find_tutor(request: Request, db: Session = Depends(get_db)):
-    # 1. Auth check
     user = get_user_session(request)
-    if not user: return []
+    if not user:
+        return []
 
-    # 2. Get basic users from DB
     match_service = MatchingService(db)
     tutors_db = match_service.search_tutors()
 
-    # 3. Enrich with Mock Data (since DB is simple) for UI display
-    enriched_tutors = []
     departments = ["Khoa học Máy tính", "Điện - Điện tử", "Cơ khí", "Kỹ thuật Hóa học", "Khoa học Ứng dụng"]
     subjects_pool = ["Giải tích 1", "Vật lý 1", "Đại số tuyến tính", "Cấu trúc dữ liệu", "Lập trình C++", "Hóa đại cương"]
 
+    enriched_tutors = []
     for t in tutors_db:
         enriched_tutors.append({
             "id": t.id,
             "name": t.ho_ten,
             "mssv": t.mssv,
-            # Mock details
             "department": random.choice(departments),
             "rating": round(random.uniform(4.0, 5.0), 1),
             "totalSessions": random.randint(10, 50),
             "subjects": random.sample(subjects_pool, k=2),
             "bio": "Sinh viên năm 3 với thành tích học tập xuất sắc. Nhiệt tình hỗ trợ các bạn mất gốc.",
-            "avatar": f"https://api.dicebear.com/7.x/avataaars/svg?seed={t.mssv}" # Random avatar based on MSSV
+            "avatar": f"https://api.dicebear.com/7.x/avataaars/svg?seed={t.mssv}"
         })
     
     return enriched_tutors
 
-class TutorRespondRequest(BaseModel):
-    request_id: int
-    accept: bool
-    reason: str = None  # Bắt buộc nếu từ chối
 
-# API: Sinh viên gửi yêu cầu chọn tutor (đã có, chỉ đảm bảo đúng)
 @router.post("/api/select_tutor")
 def api_select_tutor(req: TutorSelectRequest, request: Request, db: Session = Depends(get_db)):
-    user = require_role(request, 'student')
+    user = require_role(request, "student")
     match_service = MatchingService(db)
     
-    if match_service.select_tutor(user['id'], req.tutor_id):
+    if match_service.select_tutor(user["id"], req.tutor_id):
         return {"success": True, "message": "Đã gửi yêu cầu đến tutor thành công!"}
     else:
         return {"success": False, "message": "Không thể gửi. Bạn đã gửi yêu cầu này rồi hoặc tutor không tồn tại."}
 
-# API: Tutor lấy danh sách yêu cầu đang chờ duyệt
+
+# =========================
+# TUTOR - QUẢN LÝ YÊU CẦU TÌM TUTOR
+# =========================
+
 @router.get("/api/tutor/pending_requests")
 def get_pending_requests(request: Request, db: Session = Depends(get_db)):
-    user = require_role(request, 'tutor')
+    user = require_role(request, "tutor")
     match_service = MatchingService(db)
     
-    requests = match_service.get_pending_requests_for_tutor(user['id'])
+    requests = match_service.get_pending_requests_for_tutor(user["id"])
     
     return [{
         "id": r.id,
@@ -126,29 +173,28 @@ def get_pending_requests(request: Request, db: Session = Depends(get_db)):
         "requested_at": r.requested_at.strftime("%d/%m/%Y %H:%M")
     } for r in requests]
 
-# API: Tutor phản hồi yêu cầu (Đồng ý / Từ chối)
+
 @router.post("/api/tutor/respond_request")
 def respond_request(payload: TutorRespondRequest, request: Request, db: Session = Depends(get_db)):
-    user = require_role(request, 'tutor')
+    user = require_role(request, "tutor")
     match_service = MatchingService(db)
     
     if not payload.accept and (not payload.reason or payload.reason.strip() == ""):
         return {"success": False, "message": "Vui lòng nhập lý do từ chối!"}
     
-    if match_service.respond_to_request(payload.request_id, user['id'], payload.accept, payload.reason):
+    if match_service.respond_to_request(payload.request_id, user["id"], payload.accept, payload.reason):
         action = "đồng ý" if payload.accept else "từ chối"
         return {"success": True, "message": f"Đã {action} yêu cầu thành công!"}
     else:
         return {"success": False, "message": "Yêu cầu không tồn tại hoặc đã được xử lý."}
 
-# API: Sinh viên xem trạng thái yêu cầu của mình
+
 @router.get("/api/my_tutor_requests")
 def get_my_requests(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
     if not user or user.get("role") != "student":
         return []
 
-    # Lấy tất cả yêu cầu của sinh viên này, join với bảng users để lấy tên + mssv tutor
     requests = (
         db.query(TutorRequest)
         .join(User, User.id == TutorRequest.tutor_id)
@@ -163,7 +209,7 @@ def get_my_requests(request: Request, db: Session = Depends(get_db)):
             "id": r.id,
             "tutor_name": r.tutor.ho_ten if r.tutor else "Tutor không tồn tại",
             "tutor_mssv": r.tutor.mssv if r.tutor else "",
-            "status": r.status.value,  # pending / accepted / rejected
+            "status": r.status.value if hasattr(r.status, "value") else str(r.status),
             "status_text": (
                 "Đang chờ phản hồi" if r.status == RequestStatus.pending else
                 "Đã chấp nhận" if r.status == RequestStatus.accepted else
@@ -175,82 +221,84 @@ def get_my_requests(request: Request, db: Session = Depends(get_db)):
         })
 
     return result
-@router.post("/api/logout")
-def logout(request: Request):
-    request.session.clear()
-    return {"success": True}
 
-# --- Student Routes ---
+
+# =========================
+# STUDENT ROUTES
+# =========================
+
 @router.get("/register", response_class=HTMLResponse)
 def view_register(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user['role'] != 'student': return RedirectResponse("/")
+    if not user or user.get("role") != "student":
+        return RedirectResponse("/")
     
     coord_service = CoordinationService(db)
     programs = coord_service.get_available_programs()
-    return templates.TemplateResponse("register.html", {"request": request, "user": user, "programs": programs})
+    return templates.TemplateResponse("register.html", {
+        "request": request, 
+        "user": user, 
+        "programs": programs
+    })
+
 
 @router.post("/api/register_program")
 def register_program(req: ProgramRegRequest, request: Request, db: Session = Depends(get_db)):
-    user = require_role(request, 'student')
+    user = require_role(request, "student")
     coord_service = CoordinationService(db)
     try:
-        coord_service.register_student_to_program(user['id'], req.program_id)
+        coord_service.register_student_to_program(user["id"], req.program_id)
         return {"success": True, "message": "Đăng ký thành công!"}
     except Exception as e:
         return {"success": False, "message": str(e)}
 
-# --- Tutor Routes ---
+
+# =========================
+# TUTOR ROUTES
+# =========================
 
 @router.get("/tutor/dashboard", response_class=HTMLResponse)
 def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user['role'] != 'tutor': return RedirectResponse("/")
+    if not user or user.get("role") != "tutor":
+        return RedirectResponse("/")
     
     booking_service = BookingService(db)
 
-    # Lấy Yêu cầu đang chờ
-    raw_pending_requests = booking_service.tutor_get_pending_requests(user['id'])
+    # Yêu cầu đang chờ
+    raw_pending = booking_service.tutor_get_pending_requests(user["id"])
     pending_requests = []
-    
-    for r in raw_pending_requests:
+    for r in raw_pending:
         if r.slot and r.student:
-            start_time = r.slot.start_time
-            end_time = r.slot.end_time
-            
             pending_requests.append({
                 "id": r.id,
-                "date": start_time,
+                "date": r.slot.start_time,
                 "studentName": r.student.ho_ten,
-                "startTime": start_time.strftime("%H:%M"),
-                "endTime": end_time.strftime("%H:%M"),
+                "startTime": r.slot.start_time.strftime("%H:%M"),
+                "endTime": r.slot.end_time.strftime("%H:%M"),
                 "notes": r.note or "",
-                "status": r.status, 
+                "status": r.status,
                 "slot_id": r.slot.id
             })
 
-    # Lấy Các buổi học sắp tới
-    raw_upcoming_sessions = booking_service.tutor_get_upcoming_sessions(user['id'])
+    # Buổi học sắp tới
+    raw_upcoming = booking_service.tutor_get_upcoming_sessions(user["id"])
     upcoming_sessions = []
-    
-    for r in raw_upcoming_sessions:
+    for r in raw_upcoming:
         if r.slot and r.student:
-            start_time = r.slot.start_time
-            end_time = r.slot.end_time
-            
             upcoming_sessions.append({
                 "id": r.id,
-                "date": start_time,
+                "date": r.slot.start_time,
                 "studentName": r.student.ho_ten,
-                "startTime": start_time.strftime("%H:%M"),
-                "endTime": end_time.strftime("%H:%M"),
-                "status": r.status, # "accepted"
-                "location": "Phòng học online", # MOCK DATA
+                "startTime": r.slot.start_time.strftime("%H:%M"),
+                "endTime": r.slot.end_time.strftime("%H:%M"),
+                "status": r.status,
+                "location": "Phòng học online",
                 "slot_id": r.slot.id
             })
 
     return templates.TemplateResponse("tutor_dashboard.html", {
-        "request": request, 
+        "request": request,
         "user": user,
         "pending_requests": pending_requests,
         "upcoming_sessions": upcoming_sessions,
@@ -260,18 +308,23 @@ def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
         "teaching_hours": 32.5
     })
 
+
 @router.get("/schedule", response_class=HTMLResponse)
 def view_schedule(request: Request):
     user = get_user_session(request)
-    if not user or user['role'] != 'tutor': return RedirectResponse("/")
+    if not user or user.get("role") != "tutor":
+        return RedirectResponse("/")
     return templates.TemplateResponse("schedule.html", {"request": request, "user": user})
+
 
 @router.get("/api/get_schedule")
 def get_schedule(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user: return []
+    if not user:
+        return []
+    
     service = ScheduleService(db)
-    slots = service.get_tutor_schedule(user['id'])
+    slots = service.get_tutor_schedule(user["id"])
     
     events = []
     for s in slots:
@@ -283,50 +336,36 @@ def get_schedule(request: Request, db: Session = Depends(get_db)):
         })
     return events
 
+
 @router.post("/api/update_schedule")
 def update_schedule(req: ScheduleRequest, request: Request, db: Session = Depends(get_db)):
-    user = require_role(request, 'tutor')
+    user = require_role(request, "tutor")
     service = ScheduleService(db)
     
     try:
-        if req.action == 'add':
-            for t in req.slots: service.add_slot(user['id'], t)
+        if req.action == "add":
+            for t in req.slots:
+                service.add_slot(user["id"], t)
             msg = "Đã thêm khung giờ"
-        elif req.action == 'delete':
-            for t in req.slots: service.remove_slot(user['id'], t)
+        elif req.action == "delete":
+            for t in req.slots:
+                service.remove_slot(user["id"], t)
             msg = "Đã xóa khung giờ"
+        else:
+            msg = "Action không hợp lệ"
         return {"success": True, "message": msg}
     except Exception as e:
         return {"success": False, "message": str(e)}
-    
-@router.get("/sso", response_class=HTMLResponse)
-async def sso_page(request: Request):
-    """
-    Simulates the external HCMUT SSO Page.
-    """
-    return templates.TemplateResponse("hcmut_sso.html", {"request": request})
 
-# --- Admin & Coordinator Routes ---
 
-@router.get("/admin/dashboard", response_class=HTMLResponse)
-def view_admin(request: Request, db: Session = Depends(get_db)):
-    user = get_user_session(request)
-    if not user or user['role'] != 'admin': return RedirectResponse("/")
-    sys = SysManagementService(db)
-    return templates.TemplateResponse("admin_dashboard.html", {"request": request, "user": user, "users": sys.get_all_users()})
-
-@router.get("/coordinator/dashboard", response_class=HTMLResponse)
-def view_coord(request: Request, db: Session = Depends(get_db)):
-    user = get_user_session(request)
-    if not user or user['role'] != 'coordinator': return RedirectResponse("/")
-    coord = CoordinationService(db)
-    return templates.TemplateResponse("coordinator_dashboard.html", {"request": request, "user": user, "programs": coord.get_available_programs()})
-
+# =========================
+# STUDENT SCHEDULE & BOOKING
+# =========================
 
 @router.get("/student/schedule", response_class=HTMLResponse)
 def view_student_schedule(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user['role'] != 'student':
+    if not user or user.get("role") != "student":
         return RedirectResponse("/")
     
     booking_service = BookingService(db)
@@ -334,160 +373,160 @@ def view_student_schedule(request: Request, db: Session = Depends(get_db)):
     
     requests_data = []
     for req in raw_requests:
-        start_time = req.slot.start_time if req.slot else None
-        end_time = req.slot.end_time if req.slot else None
-        
-        if start_time and end_time:
+        if req.slot:
             requests_data.append({
                 "id": req.id,
-                "status": req.status,
+                "status": req.status.value if hasattr(req.status, "value") else str(req.status),
                 "note": req.note,
-                "start": start_time.strftime("%H:%M"),
-                "end": end_time.strftime("%H:%M"),
-                "start_time": start_time,
-                "end_time": end_time,
+                "start": req.slot.start_time.strftime("%H:%M"),
+                "end": req.slot.end_time.strftime("%H:%M"),
+                "start_time": req.slot.start_time,
+                "end_time": req.slot.end_time,
                 "tutor_name": req.tutor.ho_ten if req.tutor else "N/A"
             })
 
-    return templates.TemplateResponse("student_schedule.html", {"request": request, "user": user, "requests": requests_data})
+    return templates.TemplateResponse("student_schedule.html", {
+        "request": request, 
+        "user": user, 
+        "requests": requests_data
+    })
 
 
 @router.get("/api/student/schedule")
 def student_schedule(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "student":
-        raise HTTPException(403)
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     service = BookingService(db)
-    raw_requests = service.get_student_bookings(user['id']) 
+    raw_requests = service.get_student_bookings(user["id"])
     
     events = []
     for req in raw_requests:
-        if req.slot and req.tutor:
-            # FullCalendar yêu cầu format thời gian theo chuẩn ISO 8601
-            start_iso = req.slot.start_time.isoformat()
-            end_iso = req.slot.end_time.isoformat()
+        if req.slot and req.tutor and req.status != "rejected":
+            status_display = "pending" if req.status == "pending" else "accepted"
+            textColor = "#a16225" if req.status == "pending" else "#15803d"
             
-            if req.status == 'pending':
-                status_display = 'pending'
-                textColor = '#a16225'
-            elif req.status == 'accepted':
-                status_display = 'accepted'
-                textColor = '#15803d'
-            else:
-                continue # Bỏ qua các yêu cầu đã bị từ chối ('rejected')
-
             events.append({
-                'title': f"{req.tutor.ho_ten}",
-                'start': start_iso,
-                'end': end_iso,
-                'status': status_display,
-                'textColor': textColor
+                "title": f"{req.tutor.ho_ten}",
+                "start": req.slot.start_time.isoformat(),
+                "end": req.slot.end_time.isoformat(),
+                "status": status_display,
+                "textColor": textColor
             })
-            
     return events
 
 
-# =========================
-# STUDENT - Lấy lịch rảnh tutor
-# =========================
 @router.get("/api/student/slots")
 def get_slots(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "student":
-        raise HTTPException(403)
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     service = BookingService(db)
     slots = service.get_slots_of_tutors(user["id"])
-
     return {"slots": slots or []}
 
 
-# =========================
-# STUDENT - Gửi yêu cầu đặt lịch
-# =========================
 @router.post("/api/student/book")
 async def book_slot(req: BookRequest, request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "student":
-        raise HTTPException(403)
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     try:
         service = BookingService(db)
-        r = service.create_booking_request(user["id"], req.slot_id, req.note)
-
-        return {"message": "Yêu cầu đặt lịch đã được gửi", "request": r}
-    
+        booking = service.create_booking_request(user["id"], req.slot_id, req.note)
+        return {"message": "Yêu cầu đặt lịch đã được gửi", "request": booking}
     except HTTPException as e:
         raise e
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# =========================
-# STUDENT - Xem lịch đã gửi
-# =========================
 @router.get("/api/student/bookings")
 def student_bookings(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "student":
-        raise HTTPException(403)
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     service = BookingService(db)
     bookings = service.get_student_bookings(user["id"])
-
     return {"bookings": bookings}
 
 
-# =========================
-# STUDENT - Hủy yêu cầu pending
-# =========================
 @router.delete("/api/student/booking/{req_id}")
 def cancel_booking(req_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "student":
-        raise HTTPException(403)
+    if not user or user.get("role") != "student":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     service = BookingService(db)
     service.cancel_booking(user["id"], req_id)
     return {"message": "Đã hủy yêu cầu đặt lịch"}
 
 
-# =========================
-# TUTOR - Lấy request đặt lịch
-# =========================
 @router.get("/api/tutor/requests")
 def tutor_requests(request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "tutor":
-        raise HTTPException(403)
+    if not user or user.get("role") != "tutor":
+        raise HTTPException(status_code=403, detail="Unauthorized")
 
     service = BookingService(db)
     requests = service.tutor_get_requests(user["id"])
-
     return {"requests": requests}
 
 
-# =========================
-# TUTOR - accept hoặc reject
-# =========================
 @router.post("/api/tutor/requests/respond")
 def respond_booking(req: TutorRespondBooking, request: Request, db: Session = Depends(get_db)):
     user = get_user_session(request)
-    if not user or user["role"] != "tutor":
-        raise HTTPException(403)
+    if not user or user.get("role") != "tutor":
+        raise HTTPException(status_code=403, detail="Unauthorized")
     
     service = BookingService(db)
-
     try:
         updated_req = service.tutor_respond(user["id"], req.req_id, req.action)
-        
         if updated_req:
-            message = "Đã chấp nhận yêu cầu đặt lịch." if req.action == 'accept' else "Đã từ chối yêu cầu đặt lịch."
+            message = "Đã chấp nhận yêu cầu đặt lịch." if req.action == "accept" else "Đã từ chối yêu cầu đặt lịch."
             return {"message": message, "request_id": updated_req.id}
         else:
-            raise HTTPException(404, detail="Yêu cầu không tồn tại.")
-            
+            raise HTTPException(status_code=404, detail="Yêu cầu không tồn tại.")
     except Exception as e:
-        raise HTTPException(400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# =========================
+# ADMIN & COORDINATOR
+# =========================
+
+@router.get("/admin/dashboard", response_class=HTMLResponse)
+def view_admin(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user.get("role") != "admin":
+        return RedirectResponse("/")
+    
+    sys = SysManagementService(db)
+    return templates.TemplateResponse("admin_dashboard.html", {
+        "request": request, 
+        "user": user, 
+        "users": sys.get_all_users()
+    })
+
+
+@router.get("/coordinator/dashboard", response_class=HTMLResponse)
+def view_coord(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user.get("role") != "coordinator":
+        return RedirectResponse("/")
+    
+    coord = CoordinationService(db)
+    return templates.TemplateResponse("coordinator_dashboard.html", {
+        "request": request, 
+        "user": user, 
+        "programs": coord.get_available_programs()
+    })
+
+
+@router.get("/sso", response_class=HTMLResponse)
+async def sso_page(request: Request):
+    return templates.TemplateResponse("hcmut_sso.html", {"request": request})
