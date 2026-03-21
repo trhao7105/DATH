@@ -9,3 +9,4 @@ itsdangerous
 pydantic
 cryptography
 python-dotenv
+psycopg2-binary
