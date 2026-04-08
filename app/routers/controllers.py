@@ -112,7 +112,12 @@ def view_find_tutor(request: Request):
     user = get_user_session(request)
     if not user or user.get("role") != "student":
         return RedirectResponse("/")
-    return templates.TemplateResponse("find_tutor.html", {"request": request, "user": user})
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="find_tutor.html", 
+        context={"user": user}
+    )
 
 
 @router.get("/api/find_tutor")
@@ -235,11 +240,15 @@ def view_register(request: Request, db: Session = Depends(get_db)):
     
     coord_service = CoordinationService(db)
     programs = coord_service.get_available_programs()
-    return templates.TemplateResponse("register.html", {
-        "request": request, 
-        "user": user, 
-        "programs": programs
-    })
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="register.html", 
+        context={
+            "user": user, 
+            "programs": programs
+        }
+    )
 
 
 @router.post("/api/register_program")
@@ -297,16 +306,19 @@ def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
                 "slot_id": r.slot.id
             })
 
-    return templates.TemplateResponse("tutor_dashboard.html", {
-        "request": request,
-        "user": user,
-        "pending_requests": pending_requests,
-        "upcoming_sessions": upcoming_sessions,
-        "total_sessions": 156,
-        "active_students": 24,
-        "rating": 4.8,
-        "teaching_hours": 32.5
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="tutor_dashboard.html", 
+        context={
+            "user": user,
+            "pending_requests": pending_requests,
+            "upcoming_sessions": upcoming_sessions,
+            "total_sessions": 156,
+            "active_students": 24,
+            "rating": 4.8,
+            "teaching_hours": 32.5
+        }
+    )
 
 
 @router.get("/schedule", response_class=HTMLResponse)
@@ -314,7 +326,12 @@ def view_schedule(request: Request):
     user = get_user_session(request)
     if not user or user.get("role") != "tutor":
         return RedirectResponse("/")
-    return templates.TemplateResponse("schedule.html", {"request": request, "user": user})
+    
+    return templates.TemplateResponse(
+        request=request, 
+        name="schedule.html", 
+        context={"user": user}
+    )
 
 
 @router.get("/api/get_schedule")
@@ -385,11 +402,14 @@ def view_student_schedule(request: Request, db: Session = Depends(get_db)):
                 "tutor_name": req.tutor.ho_ten if req.tutor else "N/A"
             })
 
-    return templates.TemplateResponse("student_schedule.html", {
-        "request": request, 
-        "user": user, 
-        "requests": requests_data
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="student_schedule.html", 
+        context={
+            "user": user, 
+            "requests": requests_data
+        }
+    )
 
 
 @router.get("/api/student/schedule")
@@ -506,11 +526,15 @@ def view_admin(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/")
     
     sys = SysManagementService(db)
-    return templates.TemplateResponse("admin_dashboard.html", {
-        "request": request, 
-        "user": user, 
-        "users": sys.get_all_users()
-    })
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="admin_dashboard.html", 
+        context={
+            "user": user, 
+            "users": sys.get_all_users()
+        }
+    )
 
 
 @router.get("/coordinator/dashboard", response_class=HTMLResponse)
@@ -520,13 +544,20 @@ def view_coord(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/")
     
     coord = CoordinationService(db)
-    return templates.TemplateResponse("coordinator_dashboard.html", {
-        "request": request, 
-        "user": user, 
-        "programs": coord.get_available_programs()
-    })
+    
+    return templates.TemplateResponse(
+        request=request,
+        name="coordinator_dashboard.html", 
+        context={
+            "user": user, 
+            "programs": coord.get_available_programs()
+        }
+    )
 
 
 @router.get("/sso", response_class=HTMLResponse)
 async def sso_page(request: Request):
-    return templates.TemplateResponse("hcmut_sso.html", {"request": request})
+    return templates.TemplateResponse(
+        request=request, 
+        name="hcmut_sso.html"
+    )

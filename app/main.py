@@ -81,13 +81,14 @@ async def index(request: Request):
 
         # student mặc định
         return templates.TemplateResponse(
-            "dashboard.html",
-            {"request": request, "user": user}
+            request=request,
+            name="dashboard.html",
+            context={"user": user}
         )
 
     return templates.TemplateResponse(
-        "index.html",   
-        {"request": request}
+        request=request,
+        name="index.html"
     )
 
 # =========================
@@ -108,8 +109,9 @@ async def dashboard(
         )
 
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": user}
+        request=request,
+        name="dashboard.html",
+        context={"user": user}
     )
 
 # =========================
@@ -125,6 +127,7 @@ async def my_tutors_page(
         return RedirectResponse("/", status_code=302)
 
     return templates.TemplateResponse(
-        "my_tutors.html",
-        {"request": request, "user": user}
+        request=request,
+        name="my_tutors.html",
+        context={"user": user}
     )
