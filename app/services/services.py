@@ -26,22 +26,12 @@ class ScheduleService:
         self.domain = ScheduleDomain()
 
     def _parse_time(self, time_str: str) -> datetime:
-        """Hàm đồng bộ chuẩn thời gian, chống lệch múi giờ và lỗi xóa"""
-        # Đổi Z thành +00:00 để Python có thể đọc được chuẩn UTC từ toISOString() của JS
-        time_str = time_str.replace('Z', '+00:00')
-        dt = datetime.fromisoformat(time_str)
-        
-        # Chỉ chuyển đổi nếu frontend gửi lên có kèm múi giờ (UTC)
-        if dt.tzinfo is not None:
-            # Ép về múi giờ Việt Nam (UTC+7)
-            vn_tz = timezone(timedelta(hours=7))
-            dt = dt.astimezone(vn_tz)
-            
-        # Gỡ bỏ timezone và ép microsecond = 0 
-        # (Để lưu và so sánh chính xác tuyệt đối trong Database dạng Naive DateTime)
-        dt = dt.replace(tzinfo=None, microsecond=0)
-        
-        return dt
+        """
+        Giải pháp tối ưu: Lấy chính xác mặt chữ thời gian (bỏ qua mọi múi giờ ngầm định)
+        Cắt lấy chính xác 19 ký tự đầu tiên (YYYY-MM-DDTHH:MM:SS)
+        """
+        clean_str = time_str[:19]
+        return datetime.fromisoformat(clean_str)
 
     def get_tutor_schedule(self, tutor_id: int):
         return self.schedule_repo.get_slots_by_tutor(tutor_id)

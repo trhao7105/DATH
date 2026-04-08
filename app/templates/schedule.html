@@ -176,6 +176,13 @@
         }
 
         // --- Calendar Logic ---
+        
+        // CÔNG CỤ MỚI: Ép lấy chính xác thời gian hiển thị trên lịch, bỏ qua mọi rắc rối múi giờ
+        function getLocalTimeString(dateObj) {
+            const pad = (n) => String(n).padStart(2, '0');
+            return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
@@ -194,7 +201,7 @@
                 selectMirror: true,
                 events: '/api/get_schedule',
 
-                // Add Event Logic (ĐÃ FIX: Gửi toISOString)
+                // Add Event Logic (Sử dụng hàm getLocalTimeString)
                 select: function(info) {
                     showModal(
                         "Thêm lịch rảnh", 
@@ -207,7 +214,7 @@
                                     headers: {'Content-Type': 'application/json'},
                                     body: JSON.stringify({
                                         action: 'add', 
-                                        slots: [info.start.toISOString()] // FIX Ở ĐÂY
+                                        slots: [getLocalTimeString(info.start)] // ĐÃ SỬA Ở ĐÂY
                                     })
                                 });
                                 const d = await res.json();
@@ -245,7 +252,7 @@
 
             calendar.render();
 
-            // Delete Function (ĐÃ FIX: Gửi toISOString)
+            // Delete Function (Sử dụng hàm getLocalTimeString)
             window.deleteSelected = async () => {
                 const selectedEvents = calendar.getEvents().filter(e => e.extendedProps.selected);
                 
@@ -260,8 +267,8 @@
                     true,
                     async function() {
                        
-                        // FIX Ở ĐÂY
-                        const slots = selectedEvents.map(e => e.start.toISOString());
+                        // ĐÃ SỬA Ở ĐÂY
+                        const slots = selectedEvents.map(e => getLocalTimeString(e.start));
 
                         try {
                             const res = await fetch('/api/update_schedule', {
