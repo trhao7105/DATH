@@ -1,4 +1,7 @@
-from sqlalchemy import Column, Integer, String, Enum, DateTime, ForeignKey, Boolean, Text, UniqueConstraint, Index
+from sqlalchemy import (
+    Column, Integer, String, Enum, DateTime, ForeignKey,
+    Boolean, Text, UniqueConstraint, Index
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.database import Base
@@ -6,7 +9,7 @@ import enum
 from datetime import datetime, timezone
 
 # =========================
-# ENUM TYPES 
+# ENUM TYPES
 # =========================
 
 class UserRole(enum.Enum):
@@ -55,13 +58,13 @@ class User(Base):
     student_booking_requests = relationship(
         "BookingRequest",
         back_populates="student",
-        foreign_keys="[BookingRequest.student_id]"
+        foreign_keys="BookingRequest.student_id"
     )
 
     tutor_booking_requests = relationship(
         "BookingRequest",
         back_populates="tutor",
-        foreign_keys="[BookingRequest.tutor_id]"
+        foreign_keys="BookingRequest.tutor_id"
     )
 
 
@@ -116,7 +119,12 @@ class TimeSlot(Base):
 
     tutor = relationship("User", back_populates="time_slots")
     appointment = relationship("Appointment", back_populates="slot", uselist=False)
-    booking_request = relationship("BookingRequest", back_populates="slot", uselist=False)
+
+    booking_requests = relationship("BookingRequest", back_populates="slot")
+
+    __table_args__ = (
+        UniqueConstraint("tutor_id", "start_time", name="unique_tutor_slot"),
+    )
 
 
 # =========================
@@ -148,8 +156,8 @@ class TutorRequest(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    tutor_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    student_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tutor_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
 
     status = Column(
         Enum(RequestStatus, name="request_status"),
@@ -166,9 +174,8 @@ class TutorRequest(Base):
     tutor = relationship("User", foreign_keys=[tutor_id])
 
     __table_args__ = (
-        UniqueConstraint('student_id', 'tutor_id', 'status', name='unique_pending_request'),
-        Index('ix_tutor_requests_tutor_status', 'tutor_id', 'status'),
-        Index('ix_tutor_requests_student', 'student_id'),
+        UniqueConstraint("student_id", "tutor_id", "status", name="unique_pending_request"),
+        Index("ix_tutor_requests_tutor_status", "tutor_id", "status"),
     )
 
 
@@ -200,14 +207,8 @@ class BookingRequest(Base):
 
     student = relationship("User", back_populates="student_booking_requests", foreign_keys=[student_id])
     tutor = relationship("User", back_populates="tutor_booking_requests", foreign_keys=[tutor_id])
-    slot = relationship("TimeSlot", back_populates="booking_request")
+    slot = relationship("TimeSlot", back_populates="booking_requests")
 
     __table_args__ = (
-        UniqueConstraint(
-            "slot_id",
-            "status",
-            name="unique_slot_booking",
-            deferrable=True,
-            initially="DEFERRED"
-        ),
+        Index("ix_booking_requests_slot", "slot_id"),
     )
