@@ -86,8 +86,8 @@ async def index(request: Request):
         )
 
     return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": user}
+        "index.html",   
+        {"request": request}
     )
 
 # =========================
