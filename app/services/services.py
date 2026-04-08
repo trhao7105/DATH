@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from app.repositories.repos import UserRepository, ScheduleRepository, ProgramRepository, SystemRepository, BookingRepository
 from app.models import TutorRequest, User, RequestStatus, BookingRequest, TimeSlot
 from app.integration.adapters import SSOAdapter
@@ -25,18 +25,34 @@ class ScheduleService:
         self.schedule_repo = ScheduleRepository(db)
         self.domain = ScheduleDomain()
 
+    def _parse_time(self, time_str: str) -> datetime:
+        """Hàm xử lý mọi định dạng thời gian và quy chuẩn về giờ Việt Nam"""
+        # Đổi Z thành +00:00 để Python đọc được chuẩn UTC
+        time_str = time_str.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(time_str)
+        
+        # Nếu chuỗi gửi lên có kèm múi giờ (offset-aware)
+        if dt.tzinfo is not None:
+            # 1. Ép nó về múi giờ Việt Nam (UTC+7)
+            vn_tz = timezone(timedelta(hours=7))
+            dt = dt.astimezone(vn_tz)
+            # 2. Sau đó gỡ bỏ múi giờ để biến thành offset-naive (đồng bộ với Database)
+            dt = dt.replace(tzinfo=None)
+            
+        return dt
+
     def get_tutor_schedule(self, tutor_id: int):
         return self.schedule_repo.get_slots_by_tutor(tutor_id)
 
     def add_slot(self, tutor_id: int, start_time_str: str):
-        # Tự động cắt bỏ múi giờ (nếu có) để biến aware thành naive, đồng bộ với Database
-        start_time = datetime.fromisoformat(start_time_str).replace(tzinfo=None)
+        # Dùng hàm _parse_time thông minh vừa tạo
+        start_time = self._parse_time(start_time_str)
         end_time = self.domain.validate_slot_time(start_time)
         return self.schedule_repo.create_slot(tutor_id, start_time, end_time)
 
     def remove_slot(self, tutor_id: int, start_time_str: str):
-        # Tự động cắt bỏ múi giờ (nếu có) trước khi tìm trong Database
-        start_time = datetime.fromisoformat(start_time_str).replace(tzinfo=None)
+        # Dùng hàm _parse_time để lúc xóa cũng khớp 100% với lúc thêm
+        start_time = self._parse_time(start_time_str)
         self.schedule_repo.delete_slot(tutor_id, start_time)
 
     def book_appointment(self, student_id: int, slot_id: int):
