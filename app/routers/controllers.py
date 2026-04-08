@@ -572,8 +572,10 @@ def view_my_students(request: Request, db: Session = Depends(get_db)):
     # 2. Gọi service để lấy danh sách sinh viên đã được chấp nhận (Accepted)
     students = booking_service.get_tutor_students(user["id"])
 
-    return templates.TemplateResponse("my_students.html", {
-        "request": request,
+    return templates.TemplateResponse(
+    request=request,
+    name="my_students.html",
+    context={
         "user": user,
         "students": students
     })
