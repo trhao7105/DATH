@@ -29,13 +29,14 @@ class ScheduleService:
         return self.schedule_repo.get_slots_by_tutor(tutor_id)
 
     def add_slot(self, tutor_id: int, start_time_str: str):
-        # Convert chuẩn ISO string (ví dụ: '2024-11-20T08:00:00')
-        start_time = datetime.fromisoformat(start_time_str)
+        # Tự động cắt bỏ múi giờ (nếu có) để biến aware thành naive, đồng bộ với Database
+        start_time = datetime.fromisoformat(start_time_str).replace(tzinfo=None)
         end_time = self.domain.validate_slot_time(start_time)
         return self.schedule_repo.create_slot(tutor_id, start_time, end_time)
 
     def remove_slot(self, tutor_id: int, start_time_str: str):
-        start_time = datetime.fromisoformat(start_time_str)
+        # Tự động cắt bỏ múi giờ (nếu có) trước khi tìm trong Database
+        start_time = datetime.fromisoformat(start_time_str).replace(tzinfo=None)
         self.schedule_repo.delete_slot(tutor_id, start_time)
 
     def book_appointment(self, student_id: int, slot_id: int):
