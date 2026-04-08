@@ -305,7 +305,10 @@ def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
                 "location": "Phòng học online",
                 "slot_id": r.slot.id
             })
-
+    
+    active_students_list = booking_service.get_tutor_students(user["id"])
+    actual_teaching_hours = booking_service.get_teaching_hours(user["id"])
+    
     return templates.TemplateResponse(
         request=request,
         name="tutor_dashboard.html", 
@@ -314,9 +317,9 @@ def view_tutor_dashboard(request: Request, db: Session = Depends(get_db)):
             "pending_requests": pending_requests,
             "upcoming_sessions": upcoming_sessions,
             "total_sessions": 156,
-            "active_students": 24,
+            "active_students": len(active_students_list),
             "rating": 4.8,
-            "teaching_hours": 32.5
+            "teaching_hours": actual_teaching_hours
         }
     )
 

@@ -279,3 +279,28 @@ class BookingService:
             .all()
         )
         return results
+    
+    def get_teaching_hours(self, tutor_id: int):
+        from app.models import BookingRequest, TimeSlot
+        from datetime import datetime
+        
+        # Lấy các booking đã accepted và đã kết thúc (quá khứ)
+        now = datetime.now()
+        sessions = (
+            self.db.query(TimeSlot)
+            .join(BookingRequest, TimeSlot.id == BookingRequest.slot_id)
+            .filter(
+                BookingRequest.tutor_id == tutor_id,
+                BookingRequest.status == "accepted",
+                TimeSlot.end_time < now
+            )
+            .all()
+        )
+        
+        total_hours = 0.0
+        for slot in sessions:
+            duration = slot.end_time - slot.start_time
+            # Chuyển đổi sang giờ (ví dụ: 1h30p = 1.5)
+            total_hours += duration.total_seconds() / 3600
+            
+        return round(total_hours, 1)
