@@ -1,124 +1,87 @@
-from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi import FastAPI, Request, Depends
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from app.routers import controllers
+from app.database import engine, Base
 import os
+
+# Create DB Tables automatically
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
-# =========================
-# CONFIG
-# =========================
-
-SECRET_KEY = os.getenv("SECRET_KEY", "dev_secret_key")
-
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=SECRET_KEY,
-    https_only=False, 
-    same_site="lax"
-)
-
-# =========================
-# STATIC FILES
-# =========================
-
+# Mount Static Folder
 if not os.path.exists("app/static"):
     os.makedirs("app/static")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
-# =========================
-# TEMPLATES
-# =========================
+# Configuration
+app.add_middleware(SessionMiddleware, secret_key="SUPER_SECRET_KEY")
 
+# Templates Configuration
 templates = Jinja2Templates(directory="app/templates")
 
-# =========================
-# ROUTERS
-# =========================
-
+# Register Routers
 app.include_router(controllers.router)
 
-# =========================
-# ROLE REDIRECT MAP
-# =========================
-
-ROLE_REDIRECT = {
-    "admin": "/admin/dashboard",
-    "coordinator": "/coordinator/dashboard",
-    "tutor": "/tutor/dashboard",
-}
-
-# =========================
-# DEPENDENCY
-# =========================
-
-def get_current_user(request: Request):
-    user = request.session.get("user")
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    return user
-
-# =========================
-# ROOT
-# =========================
+# --- Global/Root Routes ---
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    """
+    Landing page logic:
+    - Admin -> /admin/dashboard
+    - Coordinator -> /coordinator/dashboard
+    - Tutor -> /tutor/dashboard
+    - Student -> /dashboard
+    """
     user = request.session.get("user")
-
     if user:
-        role = user.get("role")
-
-        if role in ROLE_REDIRECT:
-            return RedirectResponse(
-                ROLE_REDIRECT[role],
-                status_code=302
-            )
-
-        # student mặc định
-        return templates.TemplateResponse(
-            "dashboard.html",
-            {"request": request, "user": user}
-        )
-
-# =========================
-# STUDENT DASHBOARD
-# =========================
+        role = user.get('role')
+        if role == 'admin':
+            return RedirectResponse("/admin/dashboard")
+        elif role == 'coordinator':
+            return RedirectResponse("/coordinator/dashboard")
+        elif role == 'tutor':
+            return RedirectResponse("/tutor/dashboard")
+        else:
+            # Default to student dashboard
+            return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
+    
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard(
-    request: Request,
-    user=Depends(get_current_user)
-):
-    role = user.get("role")
-
-    if role in ROLE_REDIRECT:
-        return RedirectResponse(
-            ROLE_REDIRECT[role],
-            status_code=302
-        )
-
-    return templates.TemplateResponse(
-        "dashboard.html",
-        {"request": request, "user": user}
-    )
-
-# =========================
-# MY TUTORS PAGE
-# =========================
+async def dashboard(request: Request):
+    """
+    Route specifically for Student Dashboard.
+    If a tutor tries to access this, redirect them to their own dashboard.
+    """
+    user = request.session.get("user")
+    if not user:
+        return RedirectResponse("/")
+    
+    role = user.get('role')
+    if role == 'tutor':
+        return RedirectResponse("/tutor/dashboard")
+    if role == 'admin':
+        return RedirectResponse("/admin/dashboard")
+    if role == 'coordinator':
+        return RedirectResponse("/coordinator/dashboard")
+        
+    return templates.TemplateResponse("dashboard.html", {"request": request, "user": user})
 
 @app.get("/my_tutors", response_class=HTMLResponse)
-async def my_tutors_page(
-    request: Request,
-    user=Depends(get_current_user)
-):
-    if user.get("role") != "student":
-        return RedirectResponse("/", status_code=302)
-
+async def my_tutors_page(request: Request):
+    """
+    Trang "Tutor của tôi" – chỉ sinh viên được vào
+    """
+    user = request.session.get("user")
+    if not user or user.get("role") != "student":
+        return RedirectResponse("/")  # hoặc "/dashboard"
+    
     return templates.TemplateResponse(
         "my_tutors.html",
         {"request": request, "user": user}
