@@ -8,6 +8,7 @@ from app.database import Base
 import enum
 from datetime import datetime, timezone
 
+
 # =========================
 # ENUM TYPES
 # =========================
@@ -118,6 +119,7 @@ class TimeSlot(Base):
     is_booked = Column(Boolean, default=False)
 
     tutor = relationship("User", back_populates="time_slots")
+
     appointment = relationship("Appointment", back_populates="slot", uselist=False)
 
     booking_requests = relationship("BookingRequest", back_populates="slot")
@@ -136,7 +138,7 @@ class Appointment(Base):
 
     id = Column(Integer, primary_key=True)
     student_id = Column(Integer, ForeignKey("users.id"))
-    slot_id = Column(Integer, ForeignKey("time_slots.id"))
+    slot_id = Column(Integer, ForeignKey("time_slots.id"), unique=True)  # 🔥 FIX
 
     status = Column(
         Enum(AppointmentStatus, name="appointment_status"),
