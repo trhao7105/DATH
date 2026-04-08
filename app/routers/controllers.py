@@ -432,8 +432,8 @@ def student_schedule(request: Request, db: Session = Depends(get_db)):
             
             events.append({
                 "title": f"{req.tutor.ho_ten}",
-                "start": req.slot.start_time.isoformat(),
-                "end": req.slot.end_time.isoformat(),
+                "start": str(req.slot.start_time)[:19].replace(" ", "T"),
+                "end": str(req.slot.end_time)[:19].replace(" ", "T"),
                 "status": status_display,
                 "textColor": textColor
             })

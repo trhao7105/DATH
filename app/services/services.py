@@ -178,8 +178,8 @@ class BookingService:
                 "id": slot.id,
                 "tutor_id": slot.tutor_id,
                 "tutor_name": tutor_name,
-                "start_time": slot.start_time,
-                "end_time": slot.end_time,
+                "start_time": slot.start_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                "end_time": slot.end_time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "is_booked": slot.is_booked,
             }
             for slot, tutor_name in results
