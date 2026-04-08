@@ -39,6 +39,8 @@ class ScheduleService:
             # 2. Sau đó gỡ bỏ múi giờ để biến thành offset-naive (đồng bộ với Database)
             dt = dt.replace(tzinfo=None)
             
+        # FIX: Xóa phần microsecond để so sánh chính xác tuyệt đối khi gọi lệnh delete
+        dt = dt.replace(microsecond=0)
         return dt
 
     def get_tutor_schedule(self, tutor_id: int):
@@ -143,7 +145,10 @@ class MatchingService:
             request.status = RequestStatus.rejected
             request.reject_reason = reason or "Không có lý do cụ thể"
 
-        request.responded_at = datetime.now(timezone.utc)
+        # FIX: Đồng bộ giờ VN (UTC+7) naive cho trường responded_at
+        vn_tz = timezone(timedelta(hours=7))
+        request.responded_at = datetime.now(vn_tz).replace(tzinfo=None)
+        
         self.db.commit()
         return True
     
@@ -157,7 +162,9 @@ class BookingService:
         # Tìm tutors đã accepted ở bảng TutorRequest
         from app.models import TutorRequest, RequestStatus, TimeSlot, User
 
-        current_time = datetime.now()
+        # FIX: Đồng bộ lấy giờ VN thay vì giờ local của server (tránh trễ 7 tiếng)
+        vn_tz = timezone(timedelta(hours=7))
+        current_time = datetime.now(vn_tz).replace(tzinfo=None)
         
         accepted_tutor_ids = (
             self.db.query(TutorRequest.tutor_id)
