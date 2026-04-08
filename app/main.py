@@ -87,7 +87,7 @@ async def index(request: Request):
 
     return templates.TemplateResponse(
         "index.html",   
-        {"request": request}
+        {"request": request, "user": user}
     )
 
 # =========================
