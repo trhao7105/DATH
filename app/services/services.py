@@ -5,8 +5,8 @@ from app.models import TutorRequest, User, RequestStatus, BookingRequest, TimeSl
 from app.integration.adapters import SSOAdapter
 from app.domain.rules import ScheduleDomain
 from sqlalchemy.exc import IntegrityError
-from datetime import datetime
 from fastapi import HTTPException
+
 class AuthService:
     def __init__(self, db: Session):
         self.user_repo = UserRepository(db)
@@ -29,15 +29,13 @@ class ScheduleService:
         return self.schedule_repo.get_slots_by_tutor(tutor_id)
 
     def add_slot(self, tutor_id: int, start_time_str: str):
-        # Convert JS ISO string (e.g., '2025-12-10T14:00:00') to Python datetime
-        clean_time = start_time_str.replace("T", " ")[:16]
-        start_time = datetime.strptime(clean_time, "%Y-%m-%d %H:%M")
+        # Convert chuẩn ISO string (ví dụ: '2024-11-20T08:00:00')
+        start_time = datetime.fromisoformat(start_time_str)
         end_time = self.domain.validate_slot_time(start_time)
         return self.schedule_repo.create_slot(tutor_id, start_time, end_time)
 
     def remove_slot(self, tutor_id: int, start_time_str: str):
-        clean_time = start_time_str.replace("T", " ")[:16]
-        start_time = datetime.strptime(clean_time, "%Y-%m-%d %H:%M")
+        start_time = datetime.fromisoformat(start_time_str)
         self.schedule_repo.delete_slot(tutor_id, start_time)
 
     def book_appointment(self, student_id: int, slot_id: int):
@@ -128,7 +126,7 @@ class MatchingService:
             request.status = RequestStatus.rejected
             request.reject_reason = reason or "Không có lý do cụ thể"
 
-        request.responded_at = datetime.utcnow()
+        request.responded_at = datetime.now(timezone.utc)
         self.db.commit()
         return True
     
@@ -243,7 +241,14 @@ class BookingService:
             raise Exception(f"Yêu cầu đã ở trạng thái {req.status} rồi.")
         
         if action == 'accept':
+            # 1. Cập nhật trạng thái request thành accepted
             updated_req = self.booking_repo.update_status(req_id, "accepted")
+            
+            # 2. Quan trọng: Đánh dấu Slot này đã có người đặt để ẩn khỏi người khác
+            slot = self.schedule_repo.get_slot_by_id(req.slot_id)
+            if slot:
+                self.schedule_repo.mark_booked(slot.id) # Gọi hàm đánh dấu đã đặt
+                
             return updated_req
             
         elif action == 'reject':
