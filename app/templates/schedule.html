@@ -12,7 +12,6 @@
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
 
-        /* Customizing FullCalendar to match Tailwind Theme */
         .fc {
             font-family: 'Inter', sans-serif;
             --fc-border-color: #e5e7eb;
@@ -176,16 +175,10 @@
         }
 
         // --- Calendar Logic ---
-        
-        // CÔNG CỤ MỚI: Ép lấy chính xác thời gian hiển thị trên lịch, bỏ qua mọi rắc rối múi giờ
-        function getLocalTimeString(dateObj) {
-            const pad = (n) => String(n).padStart(2, '0');
-            return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}T${pad(dateObj.getHours())}:${pad(dateObj.getMinutes())}:${pad(dateObj.getSeconds())}`;
-        }
-
         document.addEventListener('DOMContentLoaded', function() {
             var calendarEl = document.getElementById('calendar');
             var calendar = new FullCalendar.Calendar(calendarEl, {
+                timeZone: 'UTC', // Khóa FullCalendar không tự động nhảy múi giờ
                 initialView: 'timeGridWeek',
                 headerToolbar: {
                     left: 'prev,next today',
@@ -201,7 +194,6 @@
                 selectMirror: true,
                 events: '/api/get_schedule',
 
-                // Add Event Logic (Sử dụng hàm getLocalTimeString)
                 select: function(info) {
                     showModal(
                         "Thêm lịch rảnh", 
@@ -214,7 +206,8 @@
                                     headers: {'Content-Type': 'application/json'},
                                     body: JSON.stringify({
                                         action: 'add', 
-                                        slots: [getLocalTimeString(info.start)] // ĐÃ SỬA Ở ĐÂY
+                                        // Ép gửi đúng 19 ký tự chuẩn (YYYY-MM-DDTHH:MM:SS)
+                                        slots: [info.start.toISOString().substring(0, 19)] 
                                     })
                                 });
                                 const d = await res.json();
@@ -232,7 +225,6 @@
                     calendar.unselect();
                 },
 
-                // Select for Deletion Logic
                 eventClick: function(info) {
                     if (info.event.extendedProps.selected) {
                         info.el.style.borderColor = '';
@@ -252,7 +244,6 @@
 
             calendar.render();
 
-            // Delete Function (Sử dụng hàm getLocalTimeString)
             window.deleteSelected = async () => {
                 const selectedEvents = calendar.getEvents().filter(e => e.extendedProps.selected);
                 
@@ -267,8 +258,8 @@
                     true,
                     async function() {
                        
-                        // ĐÃ SỬA Ở ĐÂY
-                        const slots = selectedEvents.map(e => getLocalTimeString(e.start));
+                        // Ép gửi đúng 19 ký tự chuẩn (YYYY-MM-DDTHH:MM:SS) để Database tìm chính xác
+                        const slots = selectedEvents.map(e => e.start.toISOString().substring(0, 19));
 
                         try {
                             const res = await fetch('/api/update_schedule', {

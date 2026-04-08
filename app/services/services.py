@@ -27,11 +27,11 @@ class ScheduleService:
 
     def _parse_time(self, time_str: str) -> datetime:
         """
-        Giải pháp tối ưu: Lấy chính xác mặt chữ thời gian (bỏ qua mọi múi giờ ngầm định)
-        Cắt lấy chính xác 19 ký tự đầu tiên (YYYY-MM-DDTHH:MM:SS)
+        Khóa chặt định dạng: Chỉ lấy đúng 19 ký tự (YYYY-MM-DDTHH:MM:SS) 
+        và chuyển thành Naive Datetime (không bị tác động bởi múi giờ hệ thống).
         """
-        clean_str = time_str[:19]
-        return datetime.fromisoformat(clean_str)
+        clean_str = time_str[:19].replace('T', ' ')
+        return datetime.strptime(clean_str, "%Y-%m-%d %H:%M:%S")
 
     def get_tutor_schedule(self, tutor_id: int):
         return self.schedule_repo.get_slots_by_tutor(tutor_id)
@@ -149,10 +149,8 @@ class BookingService:
         self.schedule_repo = ScheduleRepository(db)
 
     def get_slots_of_tutors(self, student_id):
-        # Tìm tutors đã accepted ở bảng TutorRequest
         from app.models import TutorRequest, RequestStatus, TimeSlot, User
 
-        # FIX: Đồng bộ lấy giờ VN thay vì giờ local của server (tránh trễ 7 tiếng)
         vn_tz = timezone(timedelta(hours=7))
         current_time = datetime.now(vn_tz).replace(tzinfo=None)
         
@@ -255,14 +253,10 @@ class BookingService:
             raise Exception(f"Yêu cầu đã ở trạng thái {req.status} rồi.")
         
         if action == 'accept':
-            # 1. Cập nhật trạng thái request thành accepted
             updated_req = self.booking_repo.update_status(req_id, "accepted")
-            
-            # 2. Quan trọng: Đánh dấu Slot này đã có người đặt để ẩn khỏi người khác
             slot = self.schedule_repo.get_slot_by_id(req.slot_id)
             if slot:
-                self.schedule_repo.mark_booked(slot.id) # Gọi hàm đánh dấu đã đặt
-                
+                self.schedule_repo.mark_booked(slot.id)
             return updated_req
             
         elif action == 'reject':
