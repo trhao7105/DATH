@@ -561,3 +561,19 @@ async def sso_page(request: Request):
         request=request, 
         name="hcmut_sso.html"
     )
+
+@router.get("/my-students")
+def view_my_students(request: Request, db: Session = Depends(get_db)):
+    # 1. Lấy thông tin user từ session
+    user = request.session.get("user")
+    if not user or user['role'] != 'tutor':
+        return RedirectResponse(url="/login")
+    booking_service = BookingService(db)
+    # 2. Gọi service để lấy danh sách sinh viên đã được chấp nhận (Accepted)
+    students = booking_service.get_tutor_students(user["id"])
+
+    return templates.TemplateResponse("my_students.html", {
+        "request": request,
+        "user": user,
+        "students": students
+    })

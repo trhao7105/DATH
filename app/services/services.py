@@ -265,3 +265,17 @@ class BookingService:
         
         else:
             raise Exception("Hành động không hợp lệ.")
+        
+    def get_tutor_students(self, tutor_id: int):
+        from app.models import TutorRequest, User, RequestStatus
+        
+        results = (
+            self.db.query(User)
+            .join(TutorRequest, User.id == TutorRequest.student_id)
+            .filter(
+                TutorRequest.tutor_id == tutor_id,
+                TutorRequest.status == RequestStatus.accepted
+            )
+            .all()
+        )
+        return results
