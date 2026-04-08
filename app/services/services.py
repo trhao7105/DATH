@@ -26,21 +26,21 @@ class ScheduleService:
         self.domain = ScheduleDomain()
 
     def _parse_time(self, time_str: str) -> datetime:
-        """Hàm xử lý mọi định dạng thời gian và quy chuẩn về giờ Việt Nam"""
-        # Đổi Z thành +00:00 để Python đọc được chuẩn UTC
+        """Hàm đồng bộ chuẩn thời gian, chống lệch múi giờ và lỗi xóa"""
+        # Đổi Z thành +00:00 để Python có thể đọc được chuẩn UTC từ toISOString() của JS
         time_str = time_str.replace('Z', '+00:00')
         dt = datetime.fromisoformat(time_str)
         
-        # Nếu chuỗi gửi lên có kèm múi giờ (offset-aware)
+        # Chỉ chuyển đổi nếu frontend gửi lên có kèm múi giờ (UTC)
         if dt.tzinfo is not None:
-            # 1. Ép nó về múi giờ Việt Nam (UTC+7)
+            # Ép về múi giờ Việt Nam (UTC+7)
             vn_tz = timezone(timedelta(hours=7))
             dt = dt.astimezone(vn_tz)
-            # 2. Sau đó gỡ bỏ múi giờ để biến thành offset-naive (đồng bộ với Database)
-            dt = dt.replace(tzinfo=None)
             
-        # FIX: Xóa phần microsecond để so sánh chính xác tuyệt đối khi gọi lệnh delete
-        dt = dt.replace(microsecond=0)
+        # Gỡ bỏ timezone và ép microsecond = 0 
+        # (Để lưu và so sánh chính xác tuyệt đối trong Database dạng Naive DateTime)
+        dt = dt.replace(tzinfo=None, microsecond=0)
+        
         return dt
 
     def get_tutor_schedule(self, tutor_id: int):

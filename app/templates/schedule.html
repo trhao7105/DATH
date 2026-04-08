@@ -4,11 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quản lý lịch dạy - Tutor</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-    <!-- FullCalendar CSS -->
     <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css' rel='stylesheet' />
     
     <style>
@@ -33,11 +30,9 @@
 </head>
 <body class="bg-gray-50 min-h-screen relative">
 
-    <!-- Include Header -->
     {% include 'header.html' %}
 
     <div class="container mx-auto py-8 px-4 max-w-7xl">
-        <!-- Page Header -->
         <div class="mb-8">
             <div class="flex items-center gap-3 mb-2">
                 <div class="p-2 bg-blue-100 text-blue-600 rounded-lg">
@@ -50,9 +45,7 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
             
-            <!-- Sidebar / Instructions -->
             <div class="lg:col-span-1 space-y-6">
-                <!-- Info Card -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                     <h3 class="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                         <i data-lucide="info" class="w-4 h-4 text-blue-500"></i>
@@ -74,7 +67,6 @@
                     </ul>
                 </div>
 
-                <!-- Action Actions -->
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
                     <button onclick="deleteSelected()" class="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-600 hover:bg-red-50 font-medium py-2 px-4 rounded-lg transition-colors mb-3">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
@@ -87,7 +79,6 @@
                 </div>
             </div>
 
-            <!-- Calendar Area -->
             <div class="lg:col-span-3">
                 <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
                     <div id="calendar" class="min-h-[600px]"></div>
@@ -96,7 +87,6 @@
         </div>
     </div>
 
-    <!-- Custom Modal Component -->
     <div id="custom-modal" class="fixed inset-0 z-[60] hidden" aria-labelledby="modal-title" role="dialog" aria-modal="true">
         <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onclick="closeModal()"></div>
         <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
@@ -124,7 +114,6 @@
         </div>
     </div>
 
-    <!-- FullCalendar Script -->
     <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
     <script>
         lucide.createIcons();
@@ -205,7 +194,7 @@
                 selectMirror: true,
                 events: '/api/get_schedule',
 
-                // Add Event Logic
+                // Add Event Logic (ĐÃ FIX: Gửi toISOString)
                 select: function(info) {
                     showModal(
                         "Thêm lịch rảnh", 
@@ -218,7 +207,7 @@
                                     headers: {'Content-Type': 'application/json'},
                                     body: JSON.stringify({
                                         action: 'add', 
-                                        slots: [info.startStr] // info.startStr is already correct ISO-like for current view
+                                        slots: [info.start.toISOString()] // FIX Ở ĐÂY
                                     })
                                 });
                                 const d = await res.json();
@@ -256,7 +245,7 @@
 
             calendar.render();
 
-            // Delete Function
+            // Delete Function (ĐÃ FIX: Gửi toISOString)
             window.deleteSelected = async () => {
                 const selectedEvents = calendar.getEvents().filter(e => e.extendedProps.selected);
                 
@@ -271,7 +260,8 @@
                     true,
                     async function() {
                        
-                        const slots = selectedEvents.map(e => e.startStr);
+                        // FIX Ở ĐÂY
+                        const slots = selectedEvents.map(e => e.start.toISOString());
 
                         try {
                             const res = await fetch('/api/update_schedule', {
