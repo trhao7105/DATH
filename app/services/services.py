@@ -249,8 +249,11 @@ class BookingService:
         req = self.booking_repo.get_by_id(req_id)
         if not req or req.tutor_id != tutor_id:
             raise Exception("Yêu cầu không tồn tại hoặc không thuộc về bạn.")
-        if req.status != 'pending':
-            raise Exception(f"Yêu cầu đã ở trạng thái {req.status} rồi.")
+            
+        current_status = req.status.value if hasattr(req.status, 'value') else str(req.status)
+        
+        if current_status != 'pending':
+            raise Exception(f"Yêu cầu đã ở trạng thái {current_status} rồi.")
         
         if action == 'accept':
             updated_req = self.booking_repo.update_status(req_id, "accepted")
