@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, File, UploadFile, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import List, Optional
+from app.services.services import ResourceService
 import random
 
 from app.models import TutorRequest, RequestStatus, User
@@ -648,3 +649,45 @@ def view_my_students(request: Request, db: Session = Depends(get_db)):
         "user": user,
         "students": students
     })
+
+# Up/Re document
+@router.get("/resources", response_class=HTMLResponse)
+def view_resources(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user:
+        return RedirectResponse("/")
+    
+    resource_service = ResourceService(db)
+    documents = resource_service.get_all_documents()
+    
+    docs_data = []
+    for doc in documents:
+        docs_data.append({
+            "id": doc.id,
+            "title": doc.title,
+            "url": doc.file_url,
+            "tutor_name": doc.tutor.ho_ten if doc.tutor else "Ẩn danh",
+            "date": doc.created_at.strftime("%d/%m/%Y")
+        })
+
+    return templates.TemplateResponse(
+        request=request,
+        name="resources.html", 
+        context={"user": user, "documents": docs_data}
+    )
+
+@router.post("/api/tutor/upload")
+async def upload_file_api(
+    request: Request, 
+    title: str = Form(...), 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    user = get_user_session(request)
+    if not user or user.get("role") != "tutor":
+        raise HTTPException(status_code=403, detail="Chỉ Giảng viên mới được upload tài liệu")
+    
+    resource_service = ResourceService(db)
+    doc = resource_service.upload_document(user["id"], title, file)
+    
+    return {"success": True, "message": "Upload thành công", "url": doc.file_url}

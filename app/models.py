@@ -214,3 +214,15 @@ class BookingRequest(Base):
     __table_args__ = (
         Index("ix_booking_requests_slot", "slot_id"),
     )
+
+class Document(Base):
+    __tablename__ = "documents"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(255), nullable=False)
+    file_url = Column(String(500), nullable=False) 
+    tutor_id = Column(Integer, ForeignKey("users.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Liên kết để lấy tên Tutor
+    tutor = relationship("User")

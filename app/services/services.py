@@ -5,7 +5,9 @@ from app.models import TutorRequest, User, RequestStatus, BookingRequest, TimeSl
 from app.integration.adapters import SSOAdapter
 from app.domain.rules import ScheduleDomain
 from sqlalchemy.exc import IntegrityError
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile
+import cloudinary
+import cloudinary.uploader
 
 class AuthService:
     def __init__(self, db: Session):
@@ -307,3 +309,35 @@ class BookingService:
             total_hours += duration.total_seconds() / 3600
             
         return round(total_hours, 1)
+    
+# Class xử lý logic Upload
+class ResourceService:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def upload_document(self, tutor_id: int, title: str, file: UploadFile):
+        from app.models import Document
+        try:
+            # Upload file thẳng lên kho của Cloudinary
+            result = cloudinary.uploader.upload(file.file, resource_type="auto")
+            file_url = result.get("secure_url")
+            
+            # Lưu đường link Cloudinary trả về vào bảng Document trong Neon
+            new_doc = Document(
+                title=title, 
+                file_url=file_url, 
+                tutor_id=tutor_id
+            )
+            self.db.add(new_doc)
+            self.db.commit()
+            self.db.refresh(new_doc)
+            return new_doc
+            
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=500, detail=f"Lỗi upload: {str(e)}")
+
+    def get_all_documents(self):
+        from app.models import Document
+        # Lấy danh sách tài liệu, sắp xếp mới nhất lên đầu
+        return self.db.query(Document).order_by(Document.created_at.desc()).all()
