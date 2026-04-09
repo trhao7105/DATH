@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
 from app.models import User, Program, Registration, TimeSlot, Appointment, BookingRequest
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 class UserRepository:
     def __init__(self, db: Session):
@@ -105,6 +105,9 @@ class BookingRepository:
         )
     
     def get_upcoming_sessions(self, tutor_id: int):
+        vn_tz = timezone(timedelta(hours=7))
+        current_time = datetime.now(vn_tz).replace(tzinfo=None)
+        
         return (
             self.db.query(BookingRequest)
             .join(TimeSlot)
@@ -115,7 +118,7 @@ class BookingRepository:
             .filter(
                 BookingRequest.tutor_id == tutor_id,
                 BookingRequest.status == "accepted",
-                TimeSlot.start_time >= datetime.now() 
+                TimeSlot.end_time >= current_time 
             )
             .order_by(TimeSlot.start_time.asc())
             .all()
