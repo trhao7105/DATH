@@ -257,10 +257,8 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/")
     
     booking_service = BookingService(db)
-    # Lấy toàn bộ yêu cầu đặt lịch của sinh viên này
     raw_requests = booking_service.get_student_bookings(user["id"])
     
-    # Thiết lập thời gian hiện tại theo múi giờ Việt Nam (UTC+7)
     from datetime import datetime, timezone, timedelta
     vn_tz = timezone(timedelta(hours=7))
     now = datetime.now(vn_tz).replace(tzinfo=None)
@@ -271,8 +269,11 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
     completed_count = 0
 
     for req in raw_requests:
-        # Chỉ tính các buổi đã được Tutor chấp nhận (status='accepted')
-        if req.slot and req.status == "accepted":
+        # ĐÃ SỬA CHỖ NÀY: Ép kiểu Enum về string chuẩn để so sánh
+        req_status = req.status.value if hasattr(req.status, "value") else str(req.status)
+        
+        # Kiểm tra nếu chữ "accepted" có nằm trong trạng thái
+        if req.slot and "accepted" in req_status:
             session_info = {
                 "date": req.slot.start_time,
                 "subject": req.note if req.note else "Hỗ trợ học tập",
@@ -283,17 +284,14 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
                 "location": "Phòng học Online"
             }
 
-            # Phân loại: Sắp tới hay Đã qua
             if req.slot.end_time >= now:
                 upcoming_sessions.append(session_info)
             else:
                 recent_sessions.append(session_info)
                 completed_count += 1
-                # Tính tổng giờ học tích lũy
                 duration = req.slot.end_time - req.slot.start_time
                 total_hours += duration.total_seconds() / 3600
 
-    # Sắp xếp: Sắp tới (gần nhất lên đầu), Đã học (mới nhất lên đầu)
     upcoming_sessions.sort(key=lambda x: x["date"])
     recent_sessions.sort(key=lambda x: x["date"], reverse=True)
 
@@ -306,8 +304,8 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
             "completed_sessions": completed_count,
             "upcoming_count": len(upcoming_sessions),
             "accumulated_hours": round(total_hours, 1),
-            "upcoming_sessions": upcoming_sessions[:5], # Hiển thị tối đa 5 buổi sắp tới
-            "recent_sessions": recent_sessions[:5]      # Hiển thị tối đa 5 buổi gần đây
+            "upcoming_sessions": upcoming_sessions[:5],
+            "recent_sessions": recent_sessions[:5]
         }
     )
 
