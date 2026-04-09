@@ -257,6 +257,7 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/")
     
     booking_service = BookingService(db)
+    # Lấy toàn bộ Booking (Lịch học) của sinh viên
     raw_requests = booking_service.get_student_bookings(user["id"])
     
     from datetime import datetime, timezone, timedelta
@@ -269,21 +270,22 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
     completed_count = 0
 
     for req in raw_requests:
-        req_status = req.status.value if hasattr(req.status, "value") else str(req.status)
+        req_status = str(getattr(req, "status", "")).lower().strip()
         
-        if req.slot and "accepted" in req_status:
+        # Nếu có slot và chữ "accept" nằm trong trạng thái
+        if req.slot and "accept" in req_status:
             start_dt = req.slot.start_time
             end_dt = req.slot.end_time
             
-            if hasattr(start_dt, 'tzinfo') and start_dt.tzinfo is not None:
+            if getattr(start_dt, 'tzinfo', None):
                 start_dt = start_dt.replace(tzinfo=None)
-            if hasattr(end_dt, 'tzinfo') and end_dt.tzinfo is not None:
+            if getattr(end_dt, 'tzinfo', None):
                 end_dt = end_dt.replace(tzinfo=None)
 
             session_info = {
                 "date": start_dt,
-                "subject": req.note if req.note else "Hỗ trợ học tập",
-                "tutor_name": req.tutor.ho_ten if req.tutor else "N/A",
+                "subject": getattr(req, "note", None) or "Hỗ trợ học tập",
+                "tutor_name": req.tutor.ho_ten if getattr(req, "tutor", None) else "N/A",
                 "status": "accepted",
                 "start_time": start_dt.strftime("%H:%M"),
                 "end_time": end_dt.strftime("%H:%M"),
@@ -295,12 +297,12 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
             else:
                 recent_sessions.append(session_info)
                 completed_count += 1
-                duration = end_dt - start_dt
-                total_hours += duration.total_seconds() / 3600
+                total_hours += (end_dt - start_dt).total_seconds() / 3600
 
     upcoming_sessions.sort(key=lambda x: x["date"])
     recent_sessions.sort(key=lambda x: x["date"], reverse=True)
 
+    # Đảm bảo truyền đúng biến ra Jinja
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html", 
