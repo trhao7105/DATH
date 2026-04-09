@@ -269,27 +269,33 @@ def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
     completed_count = 0
 
     for req in raw_requests:
-        # ĐÃ SỬA CHỖ NÀY: Ép kiểu Enum về string chuẩn để so sánh
         req_status = req.status.value if hasattr(req.status, "value") else str(req.status)
         
-        # Kiểm tra nếu chữ "accepted" có nằm trong trạng thái
         if req.slot and "accepted" in req_status:
+            start_dt = req.slot.start_time
+            end_dt = req.slot.end_time
+            
+            if hasattr(start_dt, 'tzinfo') and start_dt.tzinfo is not None:
+                start_dt = start_dt.replace(tzinfo=None)
+            if hasattr(end_dt, 'tzinfo') and end_dt.tzinfo is not None:
+                end_dt = end_dt.replace(tzinfo=None)
+
             session_info = {
-                "date": req.slot.start_time,
+                "date": start_dt,
                 "subject": req.note if req.note else "Hỗ trợ học tập",
                 "tutor_name": req.tutor.ho_ten if req.tutor else "N/A",
                 "status": "accepted",
-                "start_time": req.slot.start_time.strftime("%H:%M"),
-                "end_time": req.slot.end_time.strftime("%H:%M"),
+                "start_time": start_dt.strftime("%H:%M"),
+                "end_time": end_dt.strftime("%H:%M"),
                 "location": "Phòng học Online"
             }
 
-            if req.slot.end_time >= now:
+            if end_dt >= now:
                 upcoming_sessions.append(session_info)
             else:
                 recent_sessions.append(session_info)
                 completed_count += 1
-                duration = req.slot.end_time - req.slot.start_time
+                duration = end_dt - start_dt
                 total_hours += duration.total_seconds() / 3600
 
     upcoming_sessions.sort(key=lambda x: x["date"])
