@@ -70,6 +70,8 @@ Hệ thống được xây dựng dành riêng cho môi trường trường họ
    → Hệ thống sẽ hiển thị **lịch học chính thức**
    <img width="2488" height="1332" alt="image" src="https://github.com/user-attachments/assets/1cf3d38d-3dc9-47eb-9643-12e1224a69d5" />
 
+8. **Lấy tài liệu giảng viên đã upload lên**
+   <img width="2518" height="1325" alt="image" src="https://github.com/user-attachments/assets/c0ebf8ff-068f-4e88-8a37-77f7c329d0bf" />
 
 ---
 
@@ -103,9 +105,11 @@ Hệ thống được xây dựng dành riêng cho môi trường trường họ
 6. **Nhận thông báo lịch học sắp tới**
    <img width="2475" height="1315" alt="image" src="https://github.com/user-attachments/assets/9872460d-18dc-4259-8a63-561c16a37598" />
 
-
-6. **Xem danh sách sinh viên đang dạy**
+7. **Xem danh sách sinh viên đang dạy**
    <img width="2520" height="1294" alt="image" src="https://github.com/user-attachments/assets/04fe46ec-7eb9-449a-8571-118c4895aae6" />
+
+8. **Upload tài liệu dạy**
+   <img width="2512" height="1328" alt="image" src="https://github.com/user-attachments/assets/8ab2684b-8d5e-4f63-9850-3c67412fd65c" />
 
 
 ---
