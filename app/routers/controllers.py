@@ -250,6 +250,66 @@ def view_register(request: Request, db: Session = Depends(get_db)):
         }
     )
 
+@router.get("/dashboard", response_class=HTMLResponse)
+def view_student_dashboard(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user.get("role") != "student":
+        return RedirectResponse("/")
+    
+    booking_service = BookingService(db)
+    # Lấy toàn bộ yêu cầu đặt lịch của sinh viên này
+    raw_requests = booking_service.get_student_bookings(user["id"])
+    
+    # Thiết lập thời gian hiện tại theo múi giờ Việt Nam (UTC+7)
+    from datetime import datetime, timezone, timedelta
+    vn_tz = timezone(timedelta(hours=7))
+    now = datetime.now(vn_tz).replace(tzinfo=None)
+    
+    upcoming_sessions = []
+    recent_sessions = []
+    total_hours = 0.0
+    completed_count = 0
+
+    for req in raw_requests:
+        # Chỉ tính các buổi đã được Tutor chấp nhận (status='accepted')
+        if req.slot and req.status == "accepted":
+            session_info = {
+                "date": req.slot.start_time,
+                "subject": req.note if req.note else "Hỗ trợ học tập",
+                "tutor_name": req.tutor.ho_ten if req.tutor else "N/A",
+                "status": "accepted",
+                "start_time": req.slot.start_time.strftime("%H:%M"),
+                "end_time": req.slot.end_time.strftime("%H:%M"),
+                "location": "Phòng học Online"
+            }
+
+            # Phân loại: Sắp tới hay Đã qua
+            if req.slot.end_time >= now:
+                upcoming_sessions.append(session_info)
+            else:
+                recent_sessions.append(session_info)
+                completed_count += 1
+                # Tính tổng giờ học tích lũy
+                duration = req.slot.end_time - req.slot.start_time
+                total_hours += duration.total_seconds() / 3600
+
+    # Sắp xếp: Sắp tới (gần nhất lên đầu), Đã học (mới nhất lên đầu)
+    upcoming_sessions.sort(key=lambda x: x["date"])
+    recent_sessions.sort(key=lambda x: x["date"], reverse=True)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="dashboard.html", 
+        context={
+            "user": user, 
+            "total_sessions": len(upcoming_sessions) + completed_count,
+            "completed_sessions": completed_count,
+            "upcoming_count": len(upcoming_sessions),
+            "accumulated_hours": round(total_hours, 1),
+            "upcoming_sessions": upcoming_sessions[:5], # Hiển thị tối đa 5 buổi sắp tới
+            "recent_sessions": recent_sessions[:5]      # Hiển thị tối đa 5 buổi gần đây
+        }
+    )
 
 @router.post("/api/register_program")
 def register_program(req: ProgramRegRequest, request: Request, db: Session = Depends(get_db)):

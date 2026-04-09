@@ -4,9 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard Sinh viên - HCMUT Tutor</title>
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
       @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
@@ -16,11 +14,9 @@
     </style>
   </head>
   <body class="bg-gray-50">
-    <!-- Include Header -->
     {% include 'header.html' %}
 
     <div class="container mx-auto py-8 px-4 max-w-7xl min-h-screen">
-      <!-- Welcome Section -->
       <div class="mb-8">
         <h1 class="text-3xl font-bold text-blue-900 mb-2">
           Dashboard Sinh viên
@@ -31,7 +27,6 @@
         </p>
       </div>
 
-      <!-- Quick Actions -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         <a
           href="/find-tutor"
@@ -54,7 +49,6 @@
           <i data-lucide="book-open" class="h-6 w-6"></i>
           <span class="font-medium">Tài liệu</span>
         </a>
-        <!-- UPDATED BUTTON: Register Program -->
         <a
           href="/register"
           class="h-24 bg-white hover:bg-gray-50 border border-gray-200 text-gray-900 rounded-lg flex flex-col items-center justify-center gap-2 transition-colors shadow-sm"
@@ -64,9 +58,7 @@
         </a>
       </div>
 
-      <!-- Stats Section -->
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <!-- Stat Card 1 -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <div class="flex flex-row items-center justify-between pb-2 mb-2">
             <h3 class="text-sm font-medium text-gray-500">Tổng số buổi học</h3>
@@ -83,7 +75,6 @@
           </div>
         </div>
 
-        <!-- Stat Card 2 -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <div class="flex flex-row items-center justify-between pb-2 mb-2">
             <h3 class="text-sm font-medium text-gray-500">Buổi học sắp tới</h3>
@@ -93,26 +84,25 @@
             <div class="text-2xl font-bold text-gray-900">
               {{ upcoming_count if upcoming_count else 0 }}
             </div>
-            <p class="text-xs text-gray-500 mt-1">Trong tuần này</p>
+            <p class="text-xs text-gray-500 mt-1">Đã được xác nhận</p>
           </div>
         </div>
 
-        <!-- Stat Card 3 -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
           <div class="flex flex-row items-center justify-between pb-2 mb-2">
             <h3 class="text-sm font-medium text-gray-500">Giờ học tích lũy</h3>
             <i data-lucide="clock" class="h-4 w-4 text-gray-400"></i>
           </div>
           <div>
-            <div class="text-2xl font-bold text-gray-900">12.5</div>
+            <div class="text-2xl font-bold text-gray-900">
+              {{ accumulated_hours if accumulated_hours else 0 }}
+            </div>
             <p class="text-xs text-gray-500 mt-1">Giờ trong học kỳ này</p>
           </div>
         </div>
       </div>
 
-      <!-- Upcoming Sessions & Recent Activity -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <!-- Upcoming Sessions Card -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="p-6 border-b border-gray-100">
             <h3 class="font-semibold text-lg text-gray-900">
@@ -148,10 +138,9 @@
                   </div>
                   <span
                     class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold
-                                        {{ 'bg-blue-100 text-blue-800' if session.status == 'confirmed' else 'bg-gray-100 text-gray-800' }}"
+                                        {{ 'bg-green-100 text-green-800' if session.status == 'accepted' else 'bg-gray-100 text-gray-800' }}"
                   >
-                    {{ 'Đã xác nhận' if session.status == 'confirmed' else 'Chờ
-                    xác nhận' }}
+                    {{ 'Đã xác nhận' if session.status == 'accepted' else 'Chờ xác nhận' }}
                   </span>
                 </div>
                 <div class="flex items-center gap-4 mt-2 text-sm text-gray-500">
@@ -186,7 +175,6 @@
           </div>
         </div>
 
-        <!-- Recent Activity Card -->
         <div class="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div class="p-6 border-b border-gray-100">
             <h3 class="font-semibold text-lg text-gray-900">
