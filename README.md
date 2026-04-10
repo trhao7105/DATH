@@ -36,6 +36,9 @@ Hệ thống được xây dựng dành riêng cho môi trường trường họ
 
 ---
 
+# Lưu ý: Khi thực hiện xong thao tác trên 1 tài khoản nên đăng xuất ra rồi đăng nhập tài khoản khác, không nên mở nhiều tab
+
+---
 ## 👨‍🎓 Tài khoản sinh viên (Demo)
 
 * **MSSV:** 2310001
