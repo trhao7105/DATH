@@ -80,8 +80,8 @@ Hệ thống được xây dựng dành riêng cho môi trường trường họ
 
 ## 👨‍🏫 Tài khoản giảng viên (Demo)
 
-* **MSSV:** 210001
-* **Mật khẩu:** 210001
+* **MSSV:** 2010001
+* **Mật khẩu:** 2010001
 
 ### Chức năng giảng viên
 
