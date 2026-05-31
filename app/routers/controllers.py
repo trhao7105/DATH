@@ -7,7 +7,7 @@ from typing import List, Optional
 from app.services.services import ResourceService
 import random
 
-from app.models import TutorRequest, RequestStatus, User
+from app.models import TutorRequest, RequestStatus, User, UserRole, Notification
 from app.database import get_db
 from app.services.services import (
     AuthService, ScheduleService, CoordinationService,
@@ -155,10 +155,8 @@ def api_select_tutor(req: TutorSelectRequest, request: Request, db: Session = De
     user = require_role(request, "student")
     match_service = MatchingService(db)
     
-    if match_service.select_tutor(user["id"], req.tutor_id):
-        return {"success": True, "message": "Đã gửi yêu cầu đến tutor thành công!"}
-    else:
-        return {"success": False, "message": "Không thể gửi. Bạn đã gửi yêu cầu này rồi hoặc tutor không tồn tại."}
+    success, msg = match_service.select_tutor(user["id"], req.tutor_id)
+    return {"success": success, "message": msg}
 
 
 # =========================
@@ -615,12 +613,18 @@ def view_coord(request: Request, db: Session = Depends(get_db)):
     
     coord = CoordinationService(db)
     
+    total_students = db.query(User).filter(User.role == UserRole.student).count()
+    total_tutors = db.query(User).filter(User.role == UserRole.tutor).count()
+    programs = coord.get_available_programs()
+    
     return templates.TemplateResponse(
         request=request,
         name="coordinator_dashboard.html", 
         context={
             "user": user, 
-            "programs": coord.get_available_programs()
+            "programs": programs,
+            "total_students": total_students,
+            "total_tutors": total_tutors
         }
     )
 
@@ -691,3 +695,42 @@ async def upload_file_api(
     doc = resource_service.upload_document(user["id"], title, file)
     
     return {"success": True, "message": "Upload thành công", "url": doc.file_url}
+
+class SendNotificationRequest(BaseModel):
+    message: str
+
+@router.post("/api/notifications/send_all")
+def send_notification_all(req: SendNotificationRequest, request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user or user.get("role") != "coordinator":
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    all_users = db.query(User).all()
+    notifications = [
+        Notification(user_id=u.id, message=req.message)
+        for u in all_users
+    ]
+    db.add_all(notifications)
+    db.commit()
+    return {"success": True, "message": f"Sent to {len(all_users)} users"}
+
+@router.get("/api/notifications/my")
+def get_my_notifications(request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user:
+        return []
+    
+    notifs = db.query(Notification).filter(Notification.user_id == user["id"]).order_by(Notification.created_at.desc()).limit(10).all()
+    return [{"id": n.id, "message": n.message, "is_read": n.is_read, "created_at": n.created_at.isoformat()} for n in notifs]
+
+@router.post("/api/notifications/{notif_id}/read")
+def mark_notification_read(notif_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_user_session(request)
+    if not user:
+        raise HTTPException(status_code=401)
+        
+    n = db.query(Notification).filter(Notification.id == notif_id, Notification.user_id == user["id"]).first()
+    if n:
+        n.is_read = True
+        db.commit()
+    return {"success": True}

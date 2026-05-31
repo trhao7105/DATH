@@ -84,6 +84,24 @@
 
         <!-- User Info + Logout -->
         <div class="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+          
+          <!-- Notifications Dropdown -->
+          <div class="relative group cursor-pointer mr-2">
+            <button onclick="toggleNotificationDropdown()" class="relative p-2 text-gray-500 hover:text-blue-600 transition">
+              <i data-lucide="bell" class="w-5 h-5"></i>
+              <span id="globalNotifBadge" class="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center shadow-sm hidden">0</span>
+            </button>
+            <div id="notifDropdown" class="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 hidden z-50 overflow-hidden">
+              <div class="p-3 border-b border-gray-100 font-bold text-gray-800 bg-gray-50 flex justify-between items-center">
+                <span>Thông báo</span>
+                <i data-lucide="bell" class="w-4 h-4 text-gray-500"></i>
+              </div>
+              <div id="notifList" class="max-h-72 overflow-y-auto">
+                <div class="p-4 text-center text-sm text-gray-500">Đang tải...</div>
+              </div>
+            </div>
+          </div>
+
           <div class="flex items-center gap-3">
             <div
               class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-lg ring-2 ring-white"
@@ -156,10 +174,59 @@
     }
   }
 
+  let notifOpen = false;
+  function toggleNotificationDropdown() {
+    const dropdown = document.getElementById('notifDropdown');
+    notifOpen = !notifOpen;
+    dropdown.classList.toggle('hidden', !notifOpen);
+    if (notifOpen) loadGlobalNotifications();
+  }
+
+  async function loadGlobalNotifications() {
+    try {
+      const res = await fetch('/api/notifications/my');
+      if (!res.ok) return;
+      const data = await res.json();
+      
+      const badge = document.getElementById('globalNotifBadge');
+      const unreadCount = data.filter(n => !n.is_read).length;
+      if (badge) {
+        badge.textContent = unreadCount;
+        badge.classList.toggle('hidden', unreadCount === 0);
+      }
+      
+      const list = document.getElementById('notifList');
+      if (!list) return;
+      
+      if (data.length === 0) {
+        list.innerHTML = '<div class="p-4 text-center text-sm text-gray-500">Không có thông báo mới</div>';
+        return;
+      }
+      
+      list.innerHTML = data.map(n => `
+        <div class="p-3 border-b border-gray-50 hover:bg-gray-50 transition cursor-pointer ${n.is_read ? 'opacity-70' : 'bg-blue-50/50'}" onclick="markNotifRead(${n.id})">
+          <p class="text-sm text-gray-800 ${n.is_read ? '' : 'font-medium'}">${n.message}</p>
+          <p class="text-[10px] text-gray-400 mt-1">${new Date(n.created_at).toLocaleString('vi-VN')}</p>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function markNotifRead(id) {
+    try {
+      await fetch(`/api/notifications/${id}/read`, { method: 'POST' });
+      loadGlobalNotifications();
+    } catch (e) {}
+  }
+
   // Chạy khi load + mỗi 30 giây
   document.addEventListener("DOMContentLoaded", () => {
     lucide.createIcons();
     updatePendingBadge();
+    loadGlobalNotifications();
     setInterval(updatePendingBadge, 30000);
+    setInterval(loadGlobalNotifications, 30000);
   });
 </script>

@@ -89,7 +89,7 @@ INSERT INTO users (id, mssv, password, ho_ten, role) VALUES
 (5, '2010002', '2010002', 'Hoàng Thị Dung (Tutor)', 'tutor'),
 
 (6, 'admin', 'admin', 'System Administrator', 'admin'),
-(7, 'coord', 'coord', 'Lê Đình Thuận (Coordinator)', 'coordinator');
+(7, 'coord', 'coord', 'Phòng Đào Tạo', 'coordinator');
 
 -- ============================
 --  INSERT PROGRAMS

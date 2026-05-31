@@ -1,16 +1,172 @@
 <!DOCTYPE html>
-<html>
-<head><title>Coordinator</title><link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"></head>
-<body>
-<div class="container mt-5">
-    <h1>Coordinator Dashboard</h1>
-    <h3>Active Programs</h3>
-    <ul>
-        {% for p in programs %}
-            <li>{{ p.name }} ({{ p.semester }})</li>
-        {% endfor %}
-    </ul>
-    <button onclick="fetch('/api/logout').then(() => window.location.href='/')" class="btn btn-danger">Log Out</button>
-</div>
-</body>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Phòng Đào Tạo - HCMUT Tutor</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+      body {
+        font-family: "Inter", sans-serif;
+        background-color: #8ce1fa;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen">
+    {% include 'header.html' %}
+
+    <div class="container mx-auto py-8 px-4 max-w-6xl mt-10">
+      <!-- Welcome Section -->
+      <div class="mb-8 flex justify-between items-center">
+        <h1 class="text-4xl font-bold text-blue-900">Dashboard</h1>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <a href="#"
+          class="h-32 bg-white hover:bg-gray-50 text-gray-800 rounded-[2rem] flex flex-col items-center justify-center gap-3 transition-colors shadow-sm"
+        >
+          <i data-lucide="calendar" class="h-8 w-8"></i>
+          <span class="font-medium text-lg">Điều phối chương trình.</span>
+        </a>
+        <a href="#"
+          class="h-32 bg-white hover:bg-gray-50 text-gray-800 rounded-[2rem] flex flex-col items-center justify-center gap-3 transition-colors shadow-sm"
+        >
+          <i data-lucide="user" class="h-8 w-8"></i>
+          <span class="font-medium text-lg">Theo dõi tiến trình học tập</span>
+        </a>
+        <button onclick="openNotifyModal()"
+          class="h-32 bg-white hover:bg-gray-50 text-gray-800 rounded-[2rem] flex flex-col items-center justify-center gap-3 transition-colors shadow-sm w-full"
+        >
+          <i data-lucide="bell" class="h-8 w-8"></i>
+          <span class="font-medium text-lg">Gửi thông báo</span>
+        </button>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div class="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between h-44">
+          <div class="flex flex-row items-center justify-between pb-2">
+            <h3 class="text-sm font-medium text-gray-600">Tổng sinh viên</h3>
+            <i data-lucide="users" class="h-5 w-5 text-gray-800"></i>
+          </div>
+          <div>
+            <div class="text-5xl font-bold text-gray-900 mb-2">{{ total_students }}</div>
+            <p class="text-sm text-gray-500">Đã đăng ký trong hệ thống</p>
+          </div>
+        </div>
+        <div class="bg-white rounded-[2rem] shadow-sm p-6 flex flex-col justify-between h-44">
+          <div class="flex flex-row items-center justify-between pb-2">
+            <h3 class="text-sm font-medium text-gray-600">Tổng Tutor</h3>
+            <i data-lucide="graduation-cap" class="h-5 w-5 text-gray-800"></i>
+          </div>
+          <div>
+            <div class="text-5xl font-bold text-gray-900 mb-2">{{ total_tutors }}</div>
+            <p class="text-sm text-gray-500">Giảng dạy trong hệ thống</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs Section -->
+      <div class="flex gap-2 mb-4 ml-4">
+        <button class="px-6 py-2 bg-white text-gray-800 rounded-full font-medium shadow-sm text-sm">Chương trình đang mở</button>
+      </div>
+
+      <!-- Table Section -->
+      <div class="bg-white rounded-[2rem] shadow-sm p-8 mb-8">
+        <h3 class="text-xl font-bold text-gray-900 mb-1">Quản lý chương trình</h3>
+        <p class="text-sm text-gray-500 mb-6">Các chương trình Tutor trong hệ thống</p>
+        
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-sm text-gray-600">
+            <thead class="border-b border-gray-200 font-bold text-gray-900">
+              <tr>
+                <th class="py-4 px-4 font-bold">Mã CT</th>
+                <th class="py-4 px-4 font-bold">Tên chương trình</th>
+                <th class="py-4 px-4 font-bold text-center">Học kỳ</th>
+                <th class="py-4 px-4 font-bold text-center">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in programs %}
+              <tr class="border-b border-gray-100 last:border-0 hover:bg-gray-50">
+                <td class="py-4 px-4 font-medium text-gray-900">#{{ p.id }}</td>
+                <td class="py-4 px-4">{{ p.name }}</td>
+                <td class="py-4 px-4 text-center">{{ p.semester }}</td>
+                <td class="py-4 px-4 text-center font-medium">
+                  {% if p.status.value == 'open' %}
+                    <span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs">Đang mở</span>
+                  {% else %}
+                    <span class="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs">Đã đóng</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% else %}
+              <tr>
+                <td colspan="4" class="py-8 text-center text-gray-500">Không có dữ liệu chương trình</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notify Modal -->
+    <div id="notifyModal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl">
+        <h2 class="text-xl font-bold text-gray-900 mb-4">Gửi thông báo toàn hệ thống</h2>
+        <textarea id="notifyMessage" rows="4" class="w-full border border-gray-300 rounded-lg p-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Nhập nội dung thông báo..."></textarea>
+        <div class="flex justify-end gap-3 mt-4">
+          <button onclick="closeNotifyModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors font-medium">Hủy</button>
+          <button onclick="sendNotification()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+            <i data-lucide="send" class="w-4 h-4"></i> Gửi thông báo
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      lucide.createIcons();
+
+      function openNotifyModal() {
+        document.getElementById('notifyMessage').value = '';
+        document.getElementById('notifyModal').classList.remove('hidden');
+      }
+
+      function closeNotifyModal() {
+        document.getElementById('notifyModal').classList.add('hidden');
+      }
+
+      async function sendNotification() {
+        const message = document.getElementById('notifyMessage').value.trim();
+        if (!message) {
+          alert('Vui lòng nhập nội dung thông báo!');
+          return;
+        }
+
+        try {
+          const res = await fetch('/api/notifications/send_all', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+          
+          if (res.ok) {
+            alert('Đã gửi thông báo thành công đến toàn hệ thống!');
+            closeNotifyModal();
+          } else {
+            alert('Có lỗi xảy ra khi gửi thông báo.');
+          }
+        } catch (err) {
+          console.error(err);
+          alert('Có lỗi xảy ra khi gửi thông báo.');
+        }
+      }
+    </script>
+  </body>
 </html>

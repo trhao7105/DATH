@@ -84,21 +84,31 @@ class MatchingService:
     def search_tutors(self):
         return self.db.query(User).filter(User.role == "tutor").all()
 
-    def select_tutor(self, student_id: int, tutor_id: int) -> bool:
+    def select_tutor(self, student_id: int, tutor_id: int):
+        from app.models import Registration, Program, ProgramStatus
+        
         # Kiểm tra tutor tồn tại
         tutor = self.db.query(User).filter(User.id == tutor_id, User.role == "tutor").first()
         if not tutor:
-            return False
+            return False, "Tutor không tồn tại."
 
-        # Kiểm tra đã gửi pending chưa
+        # Kiểm tra sinh viên đã đăng ký chương trình nào đang mở chưa
+        has_registered = self.db.query(Registration).join(Program).filter(
+            Registration.student_id == student_id,
+            Program.status == ProgramStatus.open
+        ).first()
+        
+        if not has_registered:
+            return False, "Bạn chưa đăng ký tham gia chương trình Tutor nào đang mở."
+
+        # Kiểm tra đã gửi yêu cầu chưa (dù pending, accepted hay rejected)
         exists = self.db.query(TutorRequest).filter(
             TutorRequest.student_id == student_id,
-            TutorRequest.tutor_id == tutor_id,
-            TutorRequest.status == RequestStatus.pending
+            TutorRequest.tutor_id == tutor_id
         ).first()
 
         if exists:
-            return False
+            return False, "Bạn đã gửi yêu cầu cho Tutor này rồi."
 
         # Tạo yêu cầu mới
         try:
@@ -109,10 +119,10 @@ class MatchingService:
             )
             self.db.add(request)
             self.db.commit()
-            return True
+            return True, "Đã gửi yêu cầu đến tutor thành công!"
         except Exception:
             self.db.rollback()
-            return False
+            return False, "Đã có lỗi hệ thống xảy ra."
 
     def get_pending_requests_for_tutor(self, tutor_id: int):
         return (self.db.query(TutorRequest)
