@@ -179,7 +179,6 @@ class BookingService:
             self.db.query(TimeSlot, User.ho_ten)
             .join(User, TimeSlot.tutor_id == User.id)
             .filter(TimeSlot.tutor_id.in_(accepted_tutor_ids))
-            .filter(TimeSlot.is_booked == False)
             .filter(TimeSlot.start_time > current_time)
             .order_by(TimeSlot.start_time.asc())
             .all()
@@ -207,23 +206,18 @@ class BookingService:
                 detail="Slot không tồn tại"
             )
         
-        existing_slot_request = (
+        # Kiểm tra xem sinh viên này đã đặt slot này chưa
+        existing_student_request = (
             self.db.query(BookingRequest)
             .filter(BookingRequest.slot_id == slot_id)
-            .filter(BookingRequest.status == "pending")
+            .filter(BookingRequest.student_id == student_id)
             .first()
         )
-        if existing_slot_request:
+        if existing_student_request:
             raise HTTPException(
                 status_code=400,
-                detail="Slot này đang có yêu cầu đặt lịch khác chờ phản hồi."
+                detail="Bạn đã đặt lịch cho khung giờ này rồi."
             )
-
-        if slot.is_booked:
-            raise HTTPException(
-            status_code=400,
-            detail="Slot này đã được đặt. Vui lòng chọn slot khác."
-        )
 
         try:
             return self.booking_repo.create_request(
